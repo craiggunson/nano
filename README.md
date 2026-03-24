@@ -1,6 +1,8 @@
 # nano
 Use AI offline with Crhome Nano
 
+Try it here https://craiggunson.github.io/nano.github.io/
+
 `Ready ✓`  
 Chrome Nano — Summarizer API
 Paste or type text below and click Summarize to run Chrome's on-device Nano model.
