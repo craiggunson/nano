@@ -1,18 +1,26 @@
 # nano
-Use AI offline with Crhome Nano
 
-Try it here https://craiggunson.github.io/nano.github.io/
+Local chat app powered by Chrome's on-device Gemini Nano APIs.
 
-`Ready ✓`  
-Chrome Nano — Summarizer API
-Paste or type text below and click Summarize to run Chrome's on-device Nano model.
+Live demo: https://craiggunson.github.io/nano.github.io/
 
-Text to summarize
-```
-The Apollo program, also known as Project Apollo, was the United States human spaceflight program carried out by the National Aeronautics and Space Administration (NASA), which succeeded in preparing and landing the first humans on the Moon from 1969 to 1972. It was first conceived during Dwight D. Eisenhower's administration as a three-person spacecraft to follow the one-person Project Mercury, which put the first Americans in space. Apollo was later dedicated to President John F. Kennedy's national goal for the 1960s of "landing a man on the Moon and returning him safely to the Earth" in an pointAddress to Congress on May 25, 1961. It was the third US human spaceflight program to fly, preceded by the two-person Project Gemini conceived in 1961 to extend spaceflight capability in support of Apollo.
-```
+## What it does
 
-Result
-```
-Discover how the Apollo program, spearheaded by NASA, achieved the extraordinary feat of landing humans on the Moon between 1969 and 1972.  Driven by President Kennedy's bold vision, this ambitious undertaking followed Project Mercury's pioneering steps in space.  Learn how Apollo built upon Project Gemini's advancements to fulfill a national goal and redefine human exploration.
-```
+- Runs a browser-based chat interface backed by the local Nano model
+- Supports multi-turn conversations in a persistent session
+- Lets you set system prompt, temperature, and top-k before starting a session
+- Keeps chats private by running on-device (when the model/API is available)
+
+## Requirements
+
+- Chrome with built-in AI APIs available (Dev/Canary is usually the easiest path)
+- Gemini Nano model installed via chrome://components
+- Relevant flags enabled (for example prompt API flags)
+
+## Usage
+
+1. Open the page.
+2. Wait for the status badge to show readiness.
+3. Set your system prompt and generation settings.
+4. Send messages in the chat panel.
+5. Use New Chat Session to reset model context.

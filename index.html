@@ -3,14 +3,18 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Chrome Nano — Summarizer API Test</title>
+	<title>Chrome Nano — Chat App</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 	<style>
 		:root {
-			--bg: #f4efe6;
-			--panel: #fffaf2;
-			--ink: #1f1b16;
-			--accent: #0f766e;
-			--accent-2: #1d4ed8;
+			--bg: #f3ece2;
+			--panel: #fffdf8;
+			--ink: #1f1a17;
+			--accent: #0d9488;
+			--accent-2: #2b7fff;
+			--line: #e8dbc5;
 			--ok: #166534;
 			--warn: #b45309;
 			--err: #b91c1c;
@@ -20,11 +24,12 @@
 
 		body {
 			margin: 0;
-			font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+			font-family: "Space Grotesk", "Segoe UI", sans-serif;
 			color: var(--ink);
 			background:
-				radial-gradient(circle at 10% 10%, #efe4d5 0%, transparent 40%),
-				radial-gradient(circle at 90% 20%, #d9f2ef 0%, transparent 35%),
+				radial-gradient(circle at 12% 8%, #ffe9cc 0%, transparent 42%),
+				radial-gradient(circle at 88% 22%, #d8f3f0 0%, transparent 36%),
+				radial-gradient(circle at 50% 100%, #d9e9ff 0%, transparent 40%),
 				var(--bg);
 			min-height: 100vh;
 			display: grid;
@@ -33,17 +38,20 @@
 		}
 
 		.card {
-			width: min(800px, 100%);
+			width: min(940px, 100%);
 			background: var(--panel);
-			border: 1px solid #e5d8c4;
+			border: 1px solid var(--line);
 			border-radius: 16px;
-			padding: 28px;
-			box-shadow: 0 14px 34px rgba(31, 27, 22, 0.11);
+			padding: 24px;
+			box-shadow: 0 16px 36px rgba(31, 27, 22, 0.12);
+			display: grid;
+			grid-template-columns: 1.05fr 2fr;
+			gap: 18px;
 		}
 
 		h1 {
 			margin: 0 0 4px;
-			font-size: clamp(1.45rem, 2.4vw, 2rem);
+			font-size: clamp(1.3rem, 2vw, 1.8rem);
 			letter-spacing: 0.02em;
 		}
 
@@ -64,105 +72,184 @@
 
 		label {
 			display: block;
-			font-weight: 600;
+			font-weight: 700;
 			margin-bottom: 6px;
+			font-size: 0.9rem;
+		}
+
+		.sidebar,
+		.chat-panel {
+			border: 1px solid var(--line);
+			border-radius: 14px;
+			padding: 14px;
+			background: #fff;
+		}
+
+		.chat-panel {
+			display: grid;
+			grid-template-rows: 1fr auto;
+			min-height: 560px;
+		}
+
+		#chatLog {
+			overflow-y: auto;
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+			padding-right: 4px;
+		}
+
+		.message {
+			max-width: 85%;
+			padding: 10px 12px;
+			border-radius: 12px;
+			line-height: 1.45;
+			white-space: pre-wrap;
+			word-wrap: break-word;
+			animation: rise-in 240ms ease;
+		}
+
+		.message.user {
+			align-self: flex-end;
+			background: linear-gradient(135deg, #0d9488, #2b7fff);
+			color: white;
+		}
+
+		.message.assistant {
+			align-self: flex-start;
+			background: #f7f4ef;
+			border: 1px solid #eadfcd;
+		}
+
+		@keyframes rise-in {
+			from { opacity: 0; transform: translateY(4px); }
+			to   { opacity: 1; transform: translateY(0); }
+		}
+
+		textarea,
+		input,
+		select {
+			width: 100%;
+			border: 1px solid #d9cebf;
+			border-radius: 10px;
+			padding: 10px 12px;
+			font-family: inherit;
+			font-size: 0.93rem;
+			background: #fff;
 		}
 
 		textarea {
-			width: 100%;
-			min-height: 160px;
-			border: 1px solid #d6cfc3;
-			border-radius: 10px;
-			padding: 12px;
-			font-family: inherit;
-			font-size: 0.95rem;
+			min-height: 92px;
 			resize: vertical;
-			margin-bottom: 12px;
-		}
-
-		select {
-			padding: 8px 12px;
-			border-radius: 8px;
-			border: 1px solid #d6cfc3;
-			font-size: 0.9rem;
-			margin-right: 10px;
 		}
 
 		.row {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 10px;
+			margin: 10px 0;
+		}
+
+		.actions {
 			display: flex;
 			flex-wrap: wrap;
-			align-items: center;
-			gap: 10px;
-			margin: 14px 0;
+			gap: 8px;
+			margin-top: 10px;
 		}
 
 		button {
 			border: none;
 			border-radius: 10px;
-			padding: 10px 18px;
+			padding: 10px 14px;
 			font-weight: 600;
 			cursor: pointer;
 			background: var(--accent);
 			color: white;
 			transition: transform 0.12s ease, filter 0.12s ease;
 		}
+
+		button.secondary {
+			background: #f1ede7;
+			color: #312b25;
+			border: 1px solid #ddd0bd;
+		}
+
 		button:hover { transform: translateY(-1px); filter: brightness(1.06); }
 		button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-		#output {
-			background: #1c1917;
-			color: #e7e5e4;
-			border-radius: 12px;
-			padding: 16px;
-			white-space: pre-wrap;
-			word-wrap: break-word;
-			min-height: 60px;
-			font-size: 0.92rem;
-			line-height: 1.5;
+		.composer {
+			border-top: 1px dashed #e4d7c4;
+			padding-top: 12px;
+			margin-top: 10px;
 		}
 
 		.hint {
 			font-size: 0.88rem;
 			opacity: 0.78;
-			margin-top: 14px;
+			margin-top: 12px;
+		}
+
+		code {
+			font-family: "IBM Plex Mono", monospace;
+		}
+
+		@media (max-width: 900px) {
+			.card {
+				grid-template-columns: 1fr;
+			}
+
+			.chat-panel {
+				min-height: 420px;
+			}
+
+			.row {
+				grid-template-columns: 1fr;
+			}
 		}
 	</style>
 </head>
 <body>
 	<main class="card">
-		<div id="statusBadge" class="badge">Checking Summarizer API…</div>
-		<h1>Chrome Nano — Summarizer API</h1>
-		<p>Paste or type text below and click <strong>Summarize</strong> to run Chrome's on-device Nano model.</p>
+		<section class="sidebar">
+			<div id="statusBadge" class="badge">Checking Nano Chat API…</div>
+			<h1>Nano Local Chat</h1>
+			<p>Run a private, on-device chat directly in Chrome using Gemini Nano.</p>
 
-		<label for="inputText">Text to summarize</label>
-		<textarea id="inputText">The Apollo program, also known as Project Apollo, was the United States human spaceflight program carried out by the National Aeronautics and Space Administration (NASA), which succeeded in preparing and landing the first humans on the Moon from 1969 to 1972. It was first conceived during Dwight D. Eisenhower's administration as a three-person spacecraft to follow the one-person Project Mercury, which put the first Americans in space. Apollo was later dedicated to President John F. Kennedy's national goal for the 1960s of "landing a man on the Moon and returning him safely to the Earth" in an pointAddress to Congress on May 25, 1961. It was the third US human spaceflight program to fly, preceded by the two-person Project Gemini conceived in 1961 to extend spaceflight capability in support of Apollo.</textarea>
+			<label for="systemPrompt">System prompt</label>
+			<textarea id="systemPrompt">You are a concise and helpful assistant. Keep responses practical and clear.</textarea>
 
-		<div class="row">
-			<label style="margin:0">Type:
-				<select id="typeSelect">
-					<option value="tl;dr" selected>tl;dr</option>
-					<option value="key-points">Key Points</option>
-					<option value="teaser">Teaser</option>
-					<option value="headline">Headline</option>
-				</select>
-			</label>
-			<label style="margin:0">Length:
-				<select id="lengthSelect">
-					<option value="short">Short</option>
-					<option value="medium" selected>Medium</option>
-					<option value="long">Long</option>
-				</select>
-			</label>
-			<button id="summarizeBtn" disabled>Summarize</button>
-		</div>
+			<div class="row">
+				<div>
+					<label for="tempInput">Temperature (0-1)</label>
+					<input id="tempInput" type="number" value="0.7" min="0" max="1" step="0.1">
+				</div>
+				<div>
+					<label for="topKInput">Top K</label>
+					<input id="topKInput" type="number" value="40" min="1" max="128" step="1">
+				</div>
+			</div>
 
-		<div id="output">Summary will appear here…</div>
+			<div class="actions">
+				<button id="newChatBtn" class="secondary" disabled>New Chat Session</button>
+			</div>
 
-		<p class="hint">
-			<strong>Requirements:</strong> Chrome 131+ with the Summarization API enabled.<br>
-			Enable at <code>chrome://flags/#summarization-api-for-gemini-nano</code><br>
-			Also ensure Gemini Nano is downloaded at <code>chrome://components</code> → "Optimization Guide On Device Model".
-		</p>
+			<p class="hint">
+				<strong>Requirements:</strong> Chrome with built-in AI APIs enabled.<br>
+				Try flags like <code>chrome://flags/#prompt-api-for-gemini-nano</code> and model download via <code>chrome://components</code>.
+			</p>
+		</section>
+
+		<section class="chat-panel">
+			<div id="chatLog" aria-live="polite"></div>
+			<div class="composer">
+				<label for="messageInput">Message</label>
+				<textarea id="messageInput" placeholder="Ask anything…"></textarea>
+				<div class="actions">
+					<button id="sendBtn" disabled>Send</button>
+					<button id="clearBtn" class="secondary">Clear Messages</button>
+				</div>
+			</div>
+		</section>
 	</main>
 
 	<script src="nano.js"></script>

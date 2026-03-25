@@ -1,129 +1,193 @@
-const output       = document.getElementById("output");
-const badge        = document.getElementById("statusBadge");
-const summarizeBtn = document.getElementById("summarizeBtn");
-const inputText    = document.getElementById("inputText");
-const typeSelect   = document.getElementById("typeSelect");
-const lengthSelect = document.getElementById("lengthSelect");
+const badge = document.getElementById("statusBadge");
+const chatLog = document.getElementById("chatLog");
+const messageInput = document.getElementById("messageInput");
+const systemPromptInput = document.getElementById("systemPrompt");
+const tempInput = document.getElementById("tempInput");
+const topKInput = document.getElementById("topKInput");
+const sendBtn = document.getElementById("sendBtn");
+const clearBtn = document.getElementById("clearBtn");
+const newChatBtn = document.getElementById("newChatBtn");
+
+let chatApi = null;
+let session = null;
+let isBusy = false;
 
 function setStatus(text, level) {
   badge.textContent = text;
-  badge.className   = "badge" + (level ? " " + level : "");
+  badge.className = "badge" + (level ? " " + level : "");
 }
 
-// ── Resolve the Summarizer API (handles multiple Chrome versions) ──
-function getSummarizerAPI() {
-  // Chrome 136+: standalone global
-  if (typeof Summarizer !== "undefined") return Summarizer;
-  // Chrome 131–135: under self.ai / window.ai
-  if (typeof self !== "undefined" && self.ai?.summarizer) return self.ai.summarizer;
-  if (typeof window !== "undefined" && window.ai?.summarizer) return window.ai.summarizer;
+function appendMessage(role, text) {
+  const node = document.createElement("div");
+  node.className = `message ${role}`;
+  node.textContent = text;
+  chatLog.appendChild(node);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function clearMessages() {
+  chatLog.innerHTML = "";
+}
+
+function setControlsEnabled(enabled) {
+  sendBtn.disabled = !enabled || isBusy;
+  newChatBtn.disabled = !enabled || isBusy;
+}
+
+function getChatAPI() {
+  if (typeof LanguageModel !== "undefined") return LanguageModel;
+  if (typeof self !== "undefined" && self.ai?.languageModel) return self.ai.languageModel;
+  if (typeof window !== "undefined" && window.ai?.languageModel) return window.ai.languageModel;
   return null;
 }
 
-// ── Check availability ─────────────────────────────────────────────
+async function resolveAvailability(api) {
+  if (typeof api.availability === "function") {
+    return api.availability();
+  }
+  if (typeof api.capabilities === "function") {
+    const caps = await api.capabilities();
+    return caps.available;
+  }
+  return "available";
+}
+
+function getSessionOptions() {
+  const temp = Number(tempInput.value);
+  const topK = Number(topKInput.value);
+
+  const options = {
+    systemPrompt: systemPromptInput.value.trim() || undefined,
+  };
+
+  if (Number.isFinite(temp)) options.temperature = temp;
+  if (Number.isFinite(topK)) options.topK = topK;
+
+  return options;
+}
+
+async function destroySessionIfNeeded() {
+  if (!session) return;
+
+  try {
+    if (typeof session.destroy === "function") {
+      session.destroy();
+    }
+  } catch (err) {
+    console.warn("Session destroy failed:", err);
+  } finally {
+    session = null;
+  }
+}
+
+async function createSessionIfNeeded(forceNew = false) {
+  if (!chatApi) {
+    throw new Error("Nano chat API is not available in this browser instance.");
+  }
+
+  if (session && !forceNew) return session;
+  await destroySessionIfNeeded();
+  session = await chatApi.create(getSessionOptions());
+  return session;
+}
+
 async function checkAvailability() {
-  // Diagnostic: log what the browser exposes so the user can inspect in DevTools
-  console.log("typeof Summarizer :", typeof Summarizer);
-  console.log("self.ai           :", typeof self !== "undefined" ? self.ai : "N/A");
-  console.log("window.ai         :", typeof window !== "undefined" ? window.ai : "N/A");
+  console.log("typeof LanguageModel:", typeof LanguageModel);
+  console.log("self.ai:", typeof self !== "undefined" ? self.ai : "N/A");
+  console.log("window.ai:", typeof window !== "undefined" ? window.ai : "N/A");
 
-  const api = getSummarizerAPI();
-
-  if (!api) {
-    setStatus("Summarizer API not found", "err");
-    output.textContent =
-      "No Summarizer API detected.\n\n" +
-      "Diagnostics (also in DevTools console):\n" +
-      "  typeof Summarizer  = " + (typeof Summarizer) + "\n" +
-      "  self.ai            = " + (typeof self !== "undefined" ? JSON.stringify(self.ai) : "N/A") + "\n" +
-      "  window.ai          = " + (typeof window !== "undefined" ? JSON.stringify(window.ai) : "N/A") + "\n\n" +
-      "Steps to enable:\n" +
-      " 1. Use Chrome 131+ (Dev / Canary recommended)\n" +
-      " 2. Enable:  chrome://flags/#summarization-api-for-gemini-nano\n" +
-      " 3. Also enable:  chrome://flags/#optimization-guide-on-device-model\n" +
-      " 4. Go to chrome://components → 'Optimization Guide On Device Model' → Check for update\n" +
-      " 5. Restart Chrome and reload this page";
+  chatApi = getChatAPI();
+  if (!chatApi) {
+    setStatus("Nano Chat API not found", "err");
+    appendMessage(
+      "assistant",
+      "No LanguageModel API was detected.\n\n" +
+        "Try Chrome Dev/Canary with AI flags enabled, then restart the browser."
+    );
+    setControlsEnabled(false);
     return;
   }
 
-  // Chrome 136+: Summarizer.availability() → string
-  // Chrome 131-135: self.ai.summarizer.capabilities() → { available: string }
-  let status;
-  if (typeof api.availability === "function") {
-    status = await api.availability();
-    console.log("Summarizer.availability():", status);
-  } else if (typeof api.capabilities === "function") {
-    const caps = await api.capabilities();
-    console.log("Summarizer capabilities:", caps);
-    status = caps.available;
-  } else {
-    // No way to check – just try to create directly
-    console.log("No availability/capabilities method – will attempt create.");
-    status = "available";
-  }
-
-  // Normalise: old API used "readily"/"after-download"/"no"
-  //            new API uses "available"/"downloadable"/"downloading"/"unavailable"
+  const status = await resolveAvailability(chatApi);
   const unavailable = ["no", "unavailable"];
   const downloading = ["after-download", "downloadable", "downloading"];
-  const ready       = ["readily", "available"];
 
   if (unavailable.includes(status)) {
-    setStatus("Model not available", "warn");
-    output.textContent =
-      "The Summarizer API exists but the on-device model is not ready.\n" +
-      "Go to chrome://components → 'Optimization Guide On Device Model' → Check for update.\n" +
-      "Then restart Chrome.";
+    setStatus("Model unavailable", "warn");
+    appendMessage(
+      "assistant",
+      "The API exists but the on-device model is unavailable.\n" +
+        "Open chrome://components and update 'Optimization Guide On Device Model', then restart Chrome."
+    );
+    setControlsEnabled(false);
     return;
   }
 
   if (downloading.includes(status)) {
-    setStatus("Downloading model…", "warn");
-    output.textContent = "The model is being downloaded. This may take a few minutes.\nTry again shortly.";
-    summarizeBtn.disabled = false;
+    setStatus("Model downloading…", "warn");
+    appendMessage("assistant", "The model is still downloading. You can try again in a few minutes.");
+    setControlsEnabled(true);
     return;
   }
 
-  setStatus("Ready ✓", "");
-  summarizeBtn.disabled = false;
-  output.textContent = "Paste some text and click Summarize.";
+  setStatus("Ready for chat", "");
+  setControlsEnabled(true);
+  appendMessage("assistant", "Chat session is ready. Send your first message.");
 }
 
-// ── Summarize ──────────────────────────────────────────────────────
-summarizeBtn.addEventListener("click", async () => {
-  const text = inputText.value.trim();
-  if (!text) {
-    output.textContent = "Please enter some text first.";
-    return;
-  }
+async function sendMessage() {
+  const text = messageInput.value.trim();
+  if (!text || isBusy) return;
 
-  const api = getSummarizerAPI();
-  if (!api) {
-    output.textContent = "Summarizer API is no longer available. Reload the page.";
-    return;
-  }
-
-  summarizeBtn.disabled = true;
-  output.textContent = "Summarizing…";
+  isBusy = true;
+  setControlsEnabled(true);
+  appendMessage("user", text);
+  messageInput.value = "";
 
   try {
-    const options = {
-      type:   typeSelect.value,
-      length: lengthSelect.value,
-    };
-
-    const session = await api.create(options);
-    const result  = await session.summarize(text);
-
-    output.textContent = result;
-    session.destroy();
+    const activeSession = await createSessionIfNeeded(false);
+    const response = await activeSession.prompt(text);
+    appendMessage("assistant", response);
   } catch (err) {
-    console.error("Summarization error:", err);
-    output.textContent = "Error: " + err.message;
+    console.error("Chat error:", err);
+    appendMessage("assistant", "Error: " + (err?.message || String(err)));
   } finally {
-    summarizeBtn.disabled = false;
+    isBusy = false;
+    setControlsEnabled(true);
+    messageInput.focus();
+  }
+}
+
+sendBtn.addEventListener("click", sendMessage);
+
+messageInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    sendMessage();
   }
 });
 
-// Run on load
+clearBtn.addEventListener("click", () => {
+  clearMessages();
+  appendMessage("assistant", "Messages cleared. Your current chat session context is still active.");
+});
+
+newChatBtn.addEventListener("click", async () => {
+  if (isBusy) return;
+
+  isBusy = true;
+  setControlsEnabled(true);
+  try {
+    await createSessionIfNeeded(true);
+    clearMessages();
+    appendMessage("assistant", "Started a fresh chat session with your current settings.");
+  } catch (err) {
+    console.error("New session error:", err);
+    appendMessage("assistant", "Could not start a new session: " + (err?.message || String(err)));
+  } finally {
+    isBusy = false;
+    setControlsEnabled(true);
+  }
+});
+
 checkAvailability();
